@@ -1,0 +1,175 @@
+--- dashboard.controller.js
++++ dashboard.controller.js
+@@ -3,7 +3,9 @@
+ 
+ export const getDashboardStats = async (req, res, next) => {
+   try {
+-    const today = new Date().toISOString().split('T')[0];
++    const from = req.query.from;
++    const to = req.query.to;
++    const today = from || new Date().toISOString().split('T')[0];
++    const toDate = to || today;
+ 
+     const [jewellers, laser, xrf, soldering, fire, exchange, workflow, master_command] = await Promise.all([
+       pool.query(`
+@@ -15,64 +17,64 @@
+       `),
+       pool.query(`
+         SELECT
+-          COUNT(*) FILTER (WHERE job_date=$1) AS today_jobs,
+-          COALESCE(SUM(pieces) FILTER (WHERE job_date=$1), 0) AS today_pieces,
++          COUNT(*) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2) AS today_jobs,
++          COALESCE(SUM(pieces) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2), 0) AS today_pieces,
+           COUNT(*) FILTER (WHERE status='Pending') AS pending,
+-          COALESCE(SUM(charges) FILTER (WHERE job_date=$1), 0) AS today_revenue
++          COALESCE(SUM(charges) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2), 0) AS today_revenue
+         FROM laser_jobs
+-      `, [today]),
++      `, [today, toDate]),
+       pool.query(`
+         SELECT
+-          COUNT(*) FILTER (WHERE test_date=$1) AS today_tests,
++          COUNT(*) FILTER (WHERE DATE(test_date) >= $1 AND DATE(test_date) <= $2) AS today_tests,
+           COUNT(*) FILTER (WHERE result='Pass') AS pass_count,
+           COUNT(*) FILTER (WHERE result='Fail') AS fail_count,
+-          COALESCE(SUM(charges) FILTER (WHERE test_date=$1), 0) AS today_revenue
++          COALESCE(SUM(charges) FILTER (WHERE DATE(test_date) >= $1 AND DATE(test_date) <= $2), 0) AS today_revenue
+         FROM xrf_tests
+-      `, [today]),
++      `, [today, toDate]),
+       pool.query(`
+         SELECT
+           COUNT(*) FILTER (WHERE status='In Progress') AS active,
+           COUNT(*) FILTER (WHERE status='Pending') AS pending,
+-          COALESCE(SUM(charges) FILTER (WHERE job_date=$1), 0) AS today_revenue
++          COALESCE(SUM(charges) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2), 0) AS today_revenue
+         FROM soldering_jobs
+-      `, [today]),
++      `, [today, toDate]),
+       pool.query(`
+         SELECT
+-          COUNT(*) FILTER (WHERE assay_date=$1) AS today_assays,
++          COUNT(*) FILTER (WHERE DATE(assay_date) >= $1 AND DATE(assay_date) <= $2) AS today_assays,
+           COUNT(*) FILTER (WHERE result='Pass') AS pass_count,
+-          COALESCE(SUM(charges) FILTER (WHERE assay_date=$1), 0) AS today_revenue
++          COALESCE(SUM(charges) FILTER (WHERE DATE(assay_date) >= $1 AND DATE(assay_date) <= $2), 0) AS today_revenue
+         FROM fire_assays
+-      `, [today]),
++      `, [today, toDate]),
+       pool.query(`
+         SELECT
+-          COUNT(*) FILTER (WHERE exchange_date=$1) AS today_txns,
+-          COALESCE(SUM(total_value) FILTER (WHERE exchange_date=$1), 0) AS today_value,
++          COUNT(*) FILTER (WHERE DATE(exchange_date) >= $1 AND DATE(exchange_date) <= $2) AS today_txns,
++          COALESCE(SUM(total_value) FILTER (WHERE DATE(exchange_date) >= $1 AND DATE(exchange_date) <= $2), 0) AS today_value,
+           COALESCE(SUM(total_value) FILTER (WHERE exchange_type='Buy'), 0) AS total_buy,
+           COALESCE(SUM(total_value) FILTER (WHERE exchange_type='Sell'), 0) AS total_sell
+         FROM gold_exchanges
+-      `, [today]),
++      `, [today, toDate]),
+       pool.query(`
+         SELECT
+           COUNT(*) FILTER (WHERE status='Intake') AS intake,
+           COUNT(*) FILTER (WHERE status='Weighing') AS weighing,
+           COUNT(*) FILTER (WHERE status='Imaging') AS imaging,
+           COUNT(*) FILTER (WHERE status='In XRF') AS xrf,
+           COUNT(*) FILTER (WHERE status='Pending HUID' OR status='HUID Tagged') AS huid,
+           COUNT(*) FILTER (WHERE status='Delivered') AS delivery
+         FROM article_tracking
+       `),
+       pool.query(`
+         SELECT
+-          (SELECT COUNT(*) FROM article_tracking) as intake_today,
+-          (SELECT COUNT(*) FROM xrf_tests) as xrf_today,
+-          (SELECT COUNT(*) FROM laser_jobs) as laser_today,
+-          (SELECT COUNT(*) FROM soldering_jobs) as soldering_today,
+-          (SELECT COUNT(*) FROM fire_assays) as fire_today,
+-          (SELECT COUNT(*) FROM gold_exchanges) as exchange_today,
++          (SELECT COUNT(*) FROM article_tracking WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as intake_today,
++          (SELECT COUNT(*) FROM xrf_tests WHERE DATE(test_date) >= $1 AND DATE(test_date) <= $2) as xrf_today,
++          (SELECT COUNT(*) FROM laser_jobs WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2) as laser_today,
++          (SELECT COUNT(*) FROM soldering_jobs WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2) as soldering_today,
++          (SELECT COUNT(*) FROM fire_assays WHERE DATE(assay_date) >= $1 AND DATE(assay_date) <= $2) as fire_today,
++          (SELECT COUNT(*) FROM gold_exchanges WHERE DATE(exchange_date) >= $1 AND DATE(exchange_date) <= $2) as exchange_today,
+           
+-          (SELECT COUNT(*) FROM article_tracking WHERE status = 'HUID Tagged' OR status = 'Delivered') as huid_completed,
+-          (SELECT COUNT(*) FROM article_tracking WHERE status = 'Rejected') as huid_rejected,
+-          (SELECT COUNT(*) FROM xrf_tests WHERE result = 'Pass') as xrf_completed,
+-          (SELECT COUNT(*) FROM laser_jobs WHERE status = 'Completed') as laser_completed,
+-          (SELECT COUNT(*) FROM soldering_jobs WHERE status = 'Completed') as soldering_completed,
+-          (SELECT COUNT(*) FROM fire_assays WHERE status = 'Completed') as fire_completed,
+-          (SELECT COUNT(*) FROM gold_exchanges WHERE status = 'Completed') as exchange_completed
+-      `)
++          (SELECT COUNT(*) FROM article_tracking WHERE (status = 'HUID Tagged' OR status = 'Delivered') AND DATE(created_at) >= $1 AND DATE(created_at) <= $2) as huid_completed,
++          (SELECT COUNT(*) FROM article_tracking WHERE status = 'Rejected' AND DATE(created_at) >= $1 AND DATE(created_at) <= $2) as huid_rejected,
++          (SELECT COUNT(*) FROM xrf_tests WHERE result = 'Pass' AND DATE(test_date) >= $1 AND DATE(test_date) <= $2) as xrf_completed,
++          (SELECT COUNT(*) FROM laser_jobs WHERE status = 'Completed' AND DATE(job_date) >= $1 AND DATE(job_date) <= $2) as laser_completed,
++          (SELECT COUNT(*) FROM soldering_jobs WHERE status = 'Completed' AND DATE(job_date) >= $1 AND DATE(job_date) <= $2) as soldering_completed,
++          (SELECT COUNT(*) FROM fire_assays WHERE status = 'Completed' AND DATE(assay_date) >= $1 AND DATE(assay_date) <= $2) as fire_completed,
++          (SELECT COUNT(*) FROM gold_exchanges WHERE status = 'Completed' AND DATE(exchange_date) >= $1 AND DATE(exchange_date) <= $2) as exchange_completed
++      `, [today, toDate])
+     ]);
+@@ -218,21 +220,23 @@
+ 
+ export const getDailyReportStats = async (req, res, next) => {
+   try {
+-    const today = new Date().toISOString().split('T')[0];
++    const from = req.query.from;
++    const to = req.query.to;
++    const today = from || new Date().toISOString().split('T')[0];
++    const toDate = to || today;
+ 
+     const [stats, weekly, purity] = await Promise.all([
+       pool.query(`
+         SELECT 
+-          (SELECT COUNT(*) FROM article_tracking WHERE DATE(created_at) = $1) as articles_received,
+-          (SELECT COUNT(*) FROM article_tracking WHERE DATE(created_at) = $1 AND (huid IS NOT NULL OR status = 'HUID Tagged')) as huid_tagged,
+-          (SELECT COALESCE(SUM(gross_weight), 0) FROM article_tracking WHERE DATE(created_at) = $1) as gold_received,
+-          (SELECT COALESCE(SUM(grand_total), 0) FROM invoices WHERE invoice_date = $1) as revenue,
++          (SELECT COUNT(*) FROM article_tracking WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as articles_received,
++          (SELECT COUNT(*) FROM article_tracking WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2 AND (huid IS NOT NULL OR status = 'HUID Tagged')) as huid_tagged,
++          (SELECT COALESCE(SUM(gross_weight), 0) FROM article_tracking WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as gold_received,
++          (SELECT COALESCE(SUM(grand_total), 0) FROM invoices WHERE DATE(invoice_date) >= $1 AND DATE(invoice_date) <= $2) as revenue,
+           (SELECT COUNT(*) FROM jewellers WHERE DATE(created_at) = CURRENT_DATE - INTERVAL '1 day') as jewellers_yesterday,
+-          (SELECT COUNT(*) FROM laser_jobs WHERE status='Completed' AND DATE(job_date) = $1) as laser_completed,
+-          (SELECT COUNT(*) FROM xrf_tests WHERE DATE(test_date) = $1) as xrf_assaying,
+-          (SELECT COALESCE(SUM(net_weight), 0) FROM article_tracking WHERE DATE(created_at) = $1) as net_weight_today,
+-          (SELECT COUNT(*) FROM soldering_jobs WHERE DATE(job_date) = $1) as soldering_today
+-      `, [today]),
++          (SELECT COUNT(*) FROM laser_jobs WHERE status='Completed' AND DATE(job_date) >= $1 AND DATE(job_date) <= $2) as laser_completed,
++          (SELECT COUNT(*) FROM xrf_tests WHERE DATE(test_date) >= $1 AND DATE(test_date) <= $2) as xrf_assaying,
++          (SELECT COALESCE(SUM(net_weight), 0) FROM article_tracking WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as net_weight_today,
++          (SELECT COUNT(*) FROM soldering_jobs WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2) as soldering_today
++      `, [today, toDate]),
+       
+       pool.query(`
+         SELECT 
+@@ -254,19 +258,24 @@
+       `)
+     ]);
+ 
++    // Pass the parameters to the recent activity query as well
+     const recentActivity = await pool.query(`
+       SELECT id, 'Article Intake' as service, customer_name as customer, article_code || ' - ' || article_type || ' - ' || metal || ' - ' || COALESCE(purity, 'N/A') || ' - ' || COALESCE(gross_weight, 0) || 'g' as details, TO_CHAR(created_at, 'DD Mon, hh:mi am') as time, status, created_at FROM article_tracking
++      WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2
+       UNION ALL
+       SELECT id, 'XRF Test' as service, customer_name as customer, item_description || ' - ' || metal_type || ' - ' || result as details, TO_CHAR(created_at, 'DD Mon, hh:mi am') as time, result as status, created_at FROM xrf_tests
++      WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2
+       UNION ALL
+       SELECT id, 'Laser Cutting' as service, customer_name as customer, article_description || ' - ' || metal_type || ' - ' || pieces || ' pcs' as details, TO_CHAR(created_at, 'DD Mon, hh:mi am') as time, status, created_at FROM laser_jobs
++      WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2
+       UNION ALL
+       SELECT id, 'Soldering' as service, customer_name as customer, job_description as details, TO_CHAR(created_at, 'DD Mon, hh:mi am') as time, status, created_at FROM soldering_jobs
++      WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2
+       UNION ALL
+       SELECT id, 'Fire Assay' as service, customer_name as customer, sample_description || ' - ' || declared_purity || ' purity' as details, TO_CHAR(created_at, 'DD Mon, hh:mi am') as time, result as status, created_at FROM fire_assays
++      WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2
+       UNION ALL
+       SELECT id, 'Gold Exchange' as service, customer_name as customer, exchange_type || ' - ' || weight || 'g @ ₹' || rate as details, TO_CHAR(created_at, 'DD Mon, hh:mi am') as time, status, created_at FROM gold_exchanges
++      WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2
+       ORDER BY created_at DESC
+       LIMIT 15
+-    `);
++    `, [today, toDate]);
+ 
+     res.json({

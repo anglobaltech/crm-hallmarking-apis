@@ -1,0 +1,11 @@
+node_modules/
+.env
+pglite-data/
+pglite-data.bak/
+.DS_Store
+*.log
+err.log
+err2.log
+err_log.txt
+global_error.log
+out.log
