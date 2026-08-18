@@ -25,7 +25,6 @@ pool.query = async (text, params) => {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
-        await client.query(`SET LOCAL ROLE app_user`);
         await client.query(`SET LOCAL app.current_tenant_id = '${tenantId}'`);
         const res = await client.query(text, params);
         await client.query('COMMIT');
@@ -39,7 +38,6 @@ pool.query = async (text, params) => {
     } else {
       // PGLite transaction
       return await pool.transaction(async (tx) => {
-        await tx.query(`SET LOCAL ROLE app_user`);
         await tx.query(`SET LOCAL app.current_tenant_id = '${tenantId}'`);
         return await tx.query(text, params);
       });
