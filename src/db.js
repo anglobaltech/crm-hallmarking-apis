@@ -1,46 +1,36 @@
-import { PGlite } from '@electric-sql/pglite';
 import pg from 'pg';
 import { AsyncLocalStorage } from 'async_hooks';
 
 export const tenantStorage = new AsyncLocalStorage();
-export let pool;
 
-if (process.env.DATABASE_URL) {
-  console.log('Connecting to Postgres via DATABASE_URL...');
-  pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL
-  });
-} else {
-  console.log('Connecting to local PGLite...');
-  pool = new PGlite('./pglite-data');
+if (!process.env.DATABASE_URL) {
+  console.error('FATAL ERROR: DATABASE_URL environment variable is missing. Supabase connection is required.');
+  process.exit(1);
 }
+
+console.log('Connecting to Postgres (Supabase) via DATABASE_URL...');
+export const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL
+});
 
 const originalQuery = pool.query.bind(pool);
 pool.query = async (text, params) => {
   const tenantId = tenantStorage.getStore();
   if (tenantId && !text.includes('SET LOCAL')) {
-    if (process.env.DATABASE_URL) {
-      // Postgres (pg) requires checking out a client from the pool to run SET LOCAL within a transaction reliably.
-      // For simplicity in this adaptation, if we want row-level security per query, we must use a client.
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        await client.query(`SET LOCAL app.current_tenant_id = '${tenantId}'`);
-        const res = await client.query(text, params);
-        await client.query('COMMIT');
-        return res;
-      } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-      } finally {
-        client.release();
-      }
-    } else {
-      // PGLite transaction
-      return await pool.transaction(async (tx) => {
-        await tx.query(`SET LOCAL app.current_tenant_id = '${tenantId}'`);
-        return await tx.query(text, params);
-      });
+    // Postgres (pg) requires checking out a client from the pool to run SET LOCAL within a transaction reliably.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SET LOCAL ROLE app_user`);
+      await client.query(`SET LOCAL app.current_tenant_id = '${tenantId}'`);
+      const res = await client.query(text, params);
+      await client.query('COMMIT');
+      return res;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
   }
   return await originalQuery(text, params);
@@ -69,7 +59,7 @@ export async function checkDatabase() {
     const tablesToTenant = [
       'orders', 'article_tracking', 'billing', 'reminders', 'invoices', 'invoice_items',
       'laser_jobs', 'soldering_jobs', 'fire_assays', 'gold_exchanges', 'xrf_tests',
-      'gold_rates', 'expenses', 'customers', 'staff', 'compliance_docs'
+      'gold_rates', 'expenses', 'customers', 'staff', 'compliance_docs', 'jewellers'
     ];
     
     for (const tbl of tablesToTenant) {
@@ -114,6 +104,11 @@ export async function checkDatabase() {
     // Ensure app_user exists so RLS isn't bypassed by superuser
     try {
       await pool.query('CREATE ROLE app_user');
+    } catch(e) {}
+    
+    // Grant app_user to the connection user (often postgres) so we can SET ROLE to it
+    try {
+      await pool.query('GRANT app_user TO current_user');
     } catch(e) {}
     
     // Grant privileges to app_user so it can read/write everything
