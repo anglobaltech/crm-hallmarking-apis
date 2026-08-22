@@ -57,7 +57,7 @@ export const createExchange = async (req, res, next) => {
     const {
       job_date, txn_date, txn_type, exchange_type, jeweller_name, jeweller_id, phone, address, gst_number, gstin,
       article_type, pieces, weight, gross_weight, net_weight, purity,
-      fine_gold_weight, gold_rate, total_value, final_amount, status, operator, remarks
+      fine_gold_weight, gold_rate, total_value, final_amount, status, operator, remarks, priority, metal
     } = req.body;
 
     if (!jeweller_name) {
@@ -68,8 +68,8 @@ export const createExchange = async (req, res, next) => {
       `INSERT INTO gold_exchanges
         (exchange_date, jeweller_name, jeweller_id, phone, address, gst_number,
          article_type, pieces, gross_weight, net_weight, purity,
-         fine_gold_weight, gold_rate, total_value, exchange_type, status, operator, remarks)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+         fine_gold_weight, gold_rate, total_value, exchange_type, status, operator, remarks, priority, metal)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
        RETURNING *`,
       [job_date || txn_date || new Date().toISOString().split('T')[0],
        jeweller_name, 
@@ -88,7 +88,7 @@ export const createExchange = async (req, res, next) => {
        exchange_type || txn_type || 'Buy',
        status || 'Pending', 
        operator || null, 
-       remarks || null]
+       remarks || null, priority || null, metal || 'Gold']
     );
     res.status(201).json(r.rows[0]);
   } catch (err) { next(err); }
@@ -99,15 +99,15 @@ export const updateExchange = async (req, res, next) => {
     const {
       job_date, txn_date, txn_type, exchange_type, jeweller_name, jeweller_id, phone, address, gst_number, gstin,
       article_type, pieces, weight, gross_weight, net_weight, purity,
-      fine_gold_weight, gold_rate, total_value, final_amount, status, operator, remarks
+      fine_gold_weight, gold_rate, total_value, final_amount, status, operator, remarks, priority, metal
     } = req.body;
 
     const r = await db(req).query(
       `UPDATE gold_exchanges SET
         exchange_date=$1, jeweller_name=$2, jeweller_id=$3, phone=$4, address=$5, gst_number=$6,
         article_type=$7, pieces=$8, gross_weight=$9, net_weight=$10, purity=$11,
-        fine_gold_weight=$12, gold_rate=$13, total_value=$14, exchange_type=$15, status=$16, operator=$17, remarks=$18, updated_at=NOW()
-       WHERE id=$19 RETURNING *`,
+        fine_gold_weight=$12, gold_rate=$13, total_value=$14, exchange_type=$15, status=$16, operator=$17, remarks=$18, priority=$19, metal=$20, updated_at=NOW()
+       WHERE id=$21 RETURNING *`,
       [job_date || txn_date || null, 
        jeweller_name, 
        jeweller_id || null, 
@@ -125,7 +125,7 @@ export const updateExchange = async (req, res, next) => {
        exchange_type || txn_type || null, 
        status || null, 
        operator || null, 
-       remarks || null, 
+       remarks || null, priority || null, metal || 'Gold',
        req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Transaction not found' });

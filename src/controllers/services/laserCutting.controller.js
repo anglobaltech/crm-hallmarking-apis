@@ -54,7 +54,7 @@ export const createLaserJob = async (req, res, next) => {
     const {
       job_date, jeweller_name, jeweller_id, phone, address, gst_number, article_type, material, purity,
       pieces, weight, huid, start_huid, end_huid, description, operator,
-      charges, payment_mode, status, remarks
+      charges, payment_mode, status, remarks, priority
     } = req.body;
 
     if (!jeweller_name || !article_type || !material) {
@@ -65,13 +65,13 @@ export const createLaserJob = async (req, res, next) => {
       `INSERT INTO laser_jobs
         (job_date, jeweller_name, jeweller_id, phone, address, gst_number, article_type, material, purity,
          pieces, weight, huid, start_huid, end_huid, description, operator,
-         charges, payment_mode, status, remarks)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+         charges, payment_mode, status, remarks, priority)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
        RETURNING *`,
       [job_date || 'NOW()', jeweller_name, jeweller_id || null, phone || null, address || null, gst_number || null,
        article_type || 'Unknown', material || 'Gold', purity || null, pieces || 1, weight || null,
        huid || null, start_huid || null, end_huid || null, description || null, operator || null,
-       charges || 0, payment_mode || 'Cash', status || 'Pending', remarks || null]
+       charges || 0, payment_mode || 'Cash', status || 'Pending', remarks || null, priority || null]
     );
 
     // Update jeweller huid_issued count if linked
@@ -94,18 +94,18 @@ export const updateLaserJob = async (req, res, next) => {
     const {
       job_date, jeweller_name, jeweller_id, phone, address, gst_number, article_type, material, purity,
       pieces, weight, huid, start_huid, end_huid, description, operator,
-      charges, payment_mode, status, remarks
+      charges, payment_mode, status, remarks, priority
     } = req.body;
 
     const result = await db(req).query(
       `UPDATE laser_jobs SET
         job_date=$1, jeweller_name=$2, jeweller_id=$3, phone=$4, address=$5, gst_number=$6, article_type=$7, material=$8, purity=$9,
         pieces=$10, weight=$11, huid=$12, start_huid=$13, end_huid=$14, description=$15, operator=$16,
-        charges=$17, payment_mode=$18, status=$19, remarks=$20, updated_at=NOW()
-       WHERE id=$21 RETURNING *`,
+        charges=$17, payment_mode=$18, status=$19, remarks=$20, priority=$21, updated_at=NOW()
+       WHERE id=$22 RETURNING *`,
       [job_date, jeweller_name, jeweller_id || null, phone || null, address || null, gst_number || null, article_type || 'Unknown', material || 'Gold', purity || null,
        pieces || 1, weight || null, huid || null, start_huid || null, end_huid || null, description || null, operator || null,
-       charges || 0, payment_mode || 'Cash', status || 'Pending', remarks || null, req.params.id]
+       charges || 0, payment_mode || 'Cash', status || 'Pending', remarks || null, priority || null, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Job not found' });
     res.json(result.rows[0]);

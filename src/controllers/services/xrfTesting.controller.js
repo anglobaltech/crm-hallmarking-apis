@@ -54,10 +54,10 @@ export const getXrfById = async (req, res, next) => {
 export const createXrfTest = async (req, res, next) => {
   try {
     const {
-      test_date, sample_id, jeweller_name, jeweller_id, phone, bis_license,
+      test_date, sample_id, jeweller_name, jeweller_id, phone, bis_license, address,
       article_type, huid, pieces, weight, declared_purity, machine,
       gold_pct, silver_pct, copper_pct, zinc_pct, other_pct,
-      tested_purity, result, operator, charges, payment_mode, remarks
+      tested_purity, result, operator, charges, payment_mode, remarks, priority
     } = req.body;
 
     if (!jeweller_name || !article_type) {
@@ -66,16 +66,16 @@ export const createXrfTest = async (req, res, next) => {
 
     const r = await db(req).query(
       `INSERT INTO xrf_tests
-        (test_date, sample_id, jeweller_name, jeweller_id, phone, bis_license,
+        (test_date, sample_id, jeweller_name, jeweller_id, phone, bis_license, address,
          article_type, huid, pieces, weight, declared_purity, machine,
          gold_pct, silver_pct, copper_pct, zinc_pct, other_pct,
-         tested_purity, result, operator, charges, payment_mode, remarks)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+         tested_purity, result, operator, charges, payment_mode, remarks, priority)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
        RETURNING *`,
-      [test_date || 'NOW()', sample_id, jeweller_name, jeweller_id || null, phone, bis_license,
+      [test_date || 'NOW()', sample_id, jeweller_name, jeweller_id || null, phone, bis_license, address,
        article_type, huid, pieces || 1, weight || null, declared_purity || null, machine || 'XRF Analyzer',
        gold_pct || 0, silver_pct || 0, copper_pct || 0, zinc_pct || 0, other_pct || 0,
-       tested_purity || null, result || 'Pass', operator, charges || 0, payment_mode || 'Cash', remarks]
+       tested_purity || null, result || 'Pass', operator, charges || 0, payment_mode || 'Cash', remarks, priority || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) { next(err); }
@@ -84,24 +84,24 @@ export const createXrfTest = async (req, res, next) => {
 export const updateXrfTest = async (req, res, next) => {
   try {
     const {
-      test_date, sample_id, jeweller_name, jeweller_id, phone, bis_license,
+      test_date, sample_id, jeweller_name, jeweller_id, phone, bis_license, address,
       article_type, huid, pieces, weight, declared_purity, machine,
       gold_pct, silver_pct, copper_pct, zinc_pct, other_pct,
-      tested_purity, result, operator, charges, payment_mode, remarks
+      tested_purity, result, operator, charges, payment_mode, remarks, priority
     } = req.body;
 
     const r = await db(req).query(
       `UPDATE xrf_tests SET
-        test_date=$1, sample_id=$2, jeweller_name=$3, jeweller_id=$4, phone=$5, bis_license=$6,
-        article_type=$7, huid=$8, pieces=$9, weight=$10, declared_purity=$11, machine=$12,
-        gold_pct=$13, silver_pct=$14, copper_pct=$15, zinc_pct=$16, other_pct=$17,
-        tested_purity=$18, result=$19, operator=$20, charges=$21, payment_mode=$22, remarks=$23,
+        test_date=$1, sample_id=$2, jeweller_name=$3, jeweller_id=$4, phone=$5, bis_license=$6, address=$7,
+        article_type=$8, huid=$9, pieces=$10, weight=$11, declared_purity=$12, machine=$13,
+        gold_pct=$14, silver_pct=$15, copper_pct=$16, zinc_pct=$17, other_pct=$18,
+        tested_purity=$19, result=$20, operator=$21, charges=$22, payment_mode=$23, remarks=$24, priority=$25,
         updated_at=NOW()
-       WHERE id=$24 RETURNING *`,
-      [test_date, sample_id, jeweller_name, jeweller_id || null, phone, bis_license,
+       WHERE id=$26 RETURNING *`,
+      [test_date, sample_id, jeweller_name, jeweller_id || null, phone, bis_license, address,
        article_type, huid, pieces, weight, declared_purity, machine,
        gold_pct, silver_pct, copper_pct, zinc_pct, other_pct,
-       tested_purity, result, operator, charges, payment_mode, remarks, req.params.id]
+       tested_purity, result, operator, charges, payment_mode, remarks, priority || null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Test not found' });
     res.json(r.rows[0]);

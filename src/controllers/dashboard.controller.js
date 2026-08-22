@@ -17,38 +17,38 @@ export const getDashboardStats = async (req, res, next) => {
       `),
       pool.query(`
         SELECT
-          COUNT(*) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2) AS today_jobs,
-          COALESCE(SUM(pieces) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2), 0) AS today_pieces,
+          COUNT(*) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) AS today_jobs,
+          COALESCE(SUM(pieces) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2), 0) AS today_pieces,
           COUNT(*) FILTER (WHERE status='Pending') AS pending,
-          COALESCE(SUM(charges) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2), 0) AS today_revenue
+          COALESCE(SUM(charges) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2), 0) AS today_revenue
         FROM laser_jobs
       `, [today, toDate]),
       pool.query(`
         SELECT
-          COUNT(*) FILTER (WHERE DATE(test_date) >= $1 AND DATE(test_date) <= $2) AS today_tests,
+          COUNT(*) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) AS today_tests,
           COUNT(*) FILTER (WHERE result='Pass') AS pass_count,
           COUNT(*) FILTER (WHERE result='Fail') AS fail_count,
-          COALESCE(SUM(charges) FILTER (WHERE DATE(test_date) >= $1 AND DATE(test_date) <= $2), 0) AS today_revenue
+          COALESCE(SUM(charges) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2), 0) AS today_revenue
         FROM xrf_tests
       `, [today, toDate]),
       pool.query(`
         SELECT
           COUNT(*) FILTER (WHERE status='In Progress') AS active,
           COUNT(*) FILTER (WHERE status='Pending') AS pending,
-          COALESCE(SUM(charges) FILTER (WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2), 0) AS today_revenue
+          COALESCE(SUM(charges) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2), 0) AS today_revenue
         FROM soldering_jobs
       `, [today, toDate]),
       pool.query(`
         SELECT
-          COUNT(*) FILTER (WHERE DATE(assay_date) >= $1 AND DATE(assay_date) <= $2) AS today_assays,
+          COUNT(*) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) AS today_assays,
           COUNT(*) FILTER (WHERE result='Pass') AS pass_count,
-          COALESCE(SUM(charges) FILTER (WHERE DATE(assay_date) >= $1 AND DATE(assay_date) <= $2), 0) AS today_revenue
+          COALESCE(SUM(charges) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2), 0) AS today_revenue
         FROM fire_assays
       `, [today, toDate]),
       pool.query(`
         SELECT
-          COUNT(*) FILTER (WHERE DATE(exchange_date) >= $1 AND DATE(exchange_date) <= $2) AS today_txns,
-          COALESCE(SUM(total_value) FILTER (WHERE DATE(exchange_date) >= $1 AND DATE(exchange_date) <= $2), 0) AS today_value,
+          COUNT(*) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) AS today_txns,
+          COALESCE(SUM(total_value) FILTER (WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2), 0) AS today_value,
           COALESCE(SUM(total_value) FILTER (WHERE exchange_type='Buy'), 0) AS total_buy,
           COALESCE(SUM(total_value) FILTER (WHERE exchange_type='Sell'), 0) AS total_sell
         FROM gold_exchanges
@@ -66,11 +66,11 @@ export const getDashboardStats = async (req, res, next) => {
       pool.query(`
         SELECT
           (SELECT COUNT(*) FROM article_tracking WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as intake_today,
-          (SELECT COUNT(*) FROM xrf_tests WHERE DATE(test_date) >= $1 AND DATE(test_date) <= $2) as xrf_today,
-          (SELECT COUNT(*) FROM laser_jobs WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2) as laser_today,
-          (SELECT COUNT(*) FROM soldering_jobs WHERE DATE(job_date) >= $1 AND DATE(job_date) <= $2) as soldering_today,
-          (SELECT COUNT(*) FROM fire_assays WHERE DATE(assay_date) >= $1 AND DATE(assay_date) <= $2) as fire_today,
-          (SELECT COUNT(*) FROM gold_exchanges WHERE DATE(exchange_date) >= $1 AND DATE(exchange_date) <= $2) as exchange_today,
+          (SELECT COUNT(*) FROM xrf_tests WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as xrf_today,
+          (SELECT COUNT(*) FROM laser_jobs WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as laser_today,
+          (SELECT COUNT(*) FROM soldering_jobs WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as soldering_today,
+          (SELECT COUNT(*) FROM fire_assays WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as fire_today,
+          (SELECT COUNT(*) FROM gold_exchanges WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2) as exchange_today,
           
           (SELECT COUNT(*) FROM article_tracking WHERE status IN ('HUID Tagged', 'Delivered', 'Completed') AND DATE(updated_at) >= $1 AND DATE(updated_at) <= $2) as huid_completed,
           (SELECT COUNT(*) FROM article_tracking WHERE status = 'Rejected' AND DATE(updated_at) >= $1 AND DATE(updated_at) <= $2) as huid_rejected,

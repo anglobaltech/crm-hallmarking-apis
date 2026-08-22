@@ -65,6 +65,8 @@ export async function checkDatabase() {
     for (const tbl of tablesToTenant) {
       try {
         await pool.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_${tbl}_tenant_id ON ${tbl}(tenant_id)`);
+        try { await pool.query(`CREATE INDEX IF NOT EXISTS idx_${tbl}_created_at ON ${tbl}(created_at)`); } catch(e) {}
       } catch (e) {
         // Table might not exist yet, ignore
       }
@@ -116,10 +118,11 @@ export async function checkDatabase() {
     await pool.query('GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user');
 
     // Fix missing columns that were added dynamically during development
-    await pool.query('ALTER TABLE laser_jobs ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50)');
-    await pool.query('ALTER TABLE soldering_jobs ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50)');
-    await pool.query('ALTER TABLE fire_assays ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50)');
-    await pool.query('ALTER TABLE gold_exchanges ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50)');
+    await pool.query('ALTER TABLE laser_jobs ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50), ADD COLUMN IF NOT EXISTS priority VARCHAR(50)');
+    await pool.query('ALTER TABLE soldering_jobs ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50), ADD COLUMN IF NOT EXISTS priority VARCHAR(50)');
+    await pool.query('ALTER TABLE fire_assays ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50), ADD COLUMN IF NOT EXISTS priority VARCHAR(50), ADD COLUMN IF NOT EXISTS metal VARCHAR(50)');
+    await pool.query('ALTER TABLE gold_exchanges ADD COLUMN IF NOT EXISTS address TEXT, ADD COLUMN IF NOT EXISTS gst_number VARCHAR(100), ADD COLUMN IF NOT EXISTS purity VARCHAR(50), ADD COLUMN IF NOT EXISTS priority VARCHAR(50), ADD COLUMN IF NOT EXISTS metal VARCHAR(50)');
+    await pool.query('ALTER TABLE xrf_tests ADD COLUMN IF NOT EXISTS address TEXT');
     
     await pool.query('ALTER TABLE invoices ADD COLUMN IF NOT EXISTS subtotal NUMERIC(10,2) DEFAULT 0');
     await pool.query('ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sgst NUMERIC(10,2) DEFAULT 0');
@@ -145,6 +148,8 @@ export async function checkDatabase() {
     
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255)');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_mobile VARCHAR(50)');
+    await pool.query('ALTER TABLE article_tracking ADD COLUMN IF NOT EXISTS priority VARCHAR(50)');
+    await pool.query('ALTER TABLE xrf_tests ADD COLUMN IF NOT EXISTS priority VARCHAR(50)');
     
     // Reminder-specific columns
     await pool.query("ALTER TABLE reminders ADD COLUMN IF NOT EXISTS reminder_type VARCHAR(50) DEFAULT 'General'");
