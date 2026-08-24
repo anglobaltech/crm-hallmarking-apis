@@ -9,9 +9,9 @@ export const createOrder = async (req, res, next) => {
     const orderCode = 'ORD-2024-' + Math.floor(1000 + Math.random() * 9000);
     const tenantId = req.user?.tenantId || 1; // Fallback to 1 if not provided by auth middleware
     const orderRes = await pool.query(
-      `INSERT INTO orders (tenant_id, order_code, customer_name, customer_mobile, customer_id, receipt_date, total_articles) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [tenantId, orderCode, customer_name, customer_mobile || null, req.body.customer_id || null, date_of_receipt || new Date(), articles ? articles.length : 1]
+      `INSERT INTO orders (tenant_id, order_code, customer_name, customer_mobile, customer_id, receipt_date, total_articles, gstin, address) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [tenantId, orderCode, customer_name, customer_mobile || null, req.body.customer_id || null, date_of_receipt || new Date(), articles ? articles.length : 1, req.body.gstin || null, req.body.address || null]
     );
     const order = orderRes.rows[0];
 
@@ -20,8 +20,8 @@ export const createOrder = async (req, res, next) => {
       for (const art of articles) {
         const artCode = 'ART-2024-' + Math.floor(1000 + Math.random() * 9000);
         await pool.query(
-          `INSERT INTO article_tracking (tenant_id, article_code, order_id, article_type, metal, declared_purity, gross_weight, net_weight, quantity, remarks, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Intake')`,
+          `INSERT INTO article_tracking (tenant_id, article_code, order_id, article_type, metal, declared_purity, gross_weight, net_weight, quantity, remarks, status, priority)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Intake', $11)`,
           [
             tenantId,
             artCode, 
@@ -32,7 +32,8 @@ export const createOrder = async (req, res, next) => {
             art.gross_weight || null, 
             art.net_weight || null, 
             art.quantity || 1,
-            art.remarks || null
+            art.remarks || null,
+            art.priority || 'Normal'
           ]
         );
       }
@@ -60,6 +61,28 @@ export const getOrders = async (req, res, next) => {
 };
 
 // --- Article Tracking ---
+export const getArticleById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`
+      SELECT 
+        a.*,
+        o.customer_name as jeweller_name,
+        COALESCE(j.phone, o.customer_mobile) as phone,
+        COALESCE(j.bis_license, o.customer_id) as bis_license,
+        COALESCE(j.gst_number, o.gstin) as gst_number,
+        COALESCE(j.address, o.address) as address
+      FROM article_tracking a
+      LEFT JOIN orders o ON a.order_id = o.id
+      LEFT JOIN jewellers j ON o.customer_id::text = j.id::text
+      WHERE a.id = $1
+    `, [id]);
+    
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Article not found' });
+    res.json(result.rows[0]);
+  } catch (err) { next(err); }
+};
+
 export const getArticles = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -88,9 +111,16 @@ export const getArticles = async (req, res, next) => {
     `, params);
 
     const dataRes = await pool.query(`
-      SELECT a.*, o.customer_name 
+      SELECT 
+        a.*, 
+        o.customer_name,
+        COALESCE(j.phone, o.customer_mobile) as phone,
+        COALESCE(j.bis_license, o.customer_id) as bis_license,
+        COALESCE(j.gst_number, o.gstin) as gst_number,
+        COALESCE(j.address, o.address) as address
       FROM article_tracking a 
       LEFT JOIN orders o ON a.order_id = o.id 
+      LEFT JOIN jewellers j ON o.customer_id::text = j.id::text
       ${whereClause} 
       ORDER BY a.created_at DESC 
       LIMIT $${idx} OFFSET $${idx + 1}

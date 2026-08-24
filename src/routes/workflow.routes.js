@@ -7,6 +7,7 @@ router.post('/orders', workflowCtrl.createOrder);
 router.get('/orders', workflowCtrl.getOrders);
 
 router.get('/articles', workflowCtrl.getArticles);
+router.get('/articles/:id', workflowCtrl.getArticleById);
 router.patch('/articles/:id/status', workflowCtrl.updateArticleStatus);
 router.put('/articles/:id', workflowCtrl.updateArticle);
 router.delete('/articles/:id', workflowCtrl.deleteArticle);
