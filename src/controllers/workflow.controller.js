@@ -9,9 +9,9 @@ export const createOrder = async (req, res, next) => {
     const orderCode = 'ORD-2024-' + Math.floor(1000 + Math.random() * 9000);
     const tenantId = req.user?.tenantId || 1; // Fallback to 1 if not provided by auth middleware
     const orderRes = await pool.query(
-      `INSERT INTO orders (tenant_id, order_code, customer_name, customer_mobile, customer_id, receipt_date, total_articles, gstin, address) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [tenantId, orderCode, customer_name, customer_mobile || null, req.body.customer_id || null, date_of_receipt || new Date(), articles ? articles.length : 1, req.body.gstin || null, req.body.address || null]
+      `INSERT INTO orders (tenant_id, order_code, customer_name, customer_mobile, customer_id, receipt_date, total_articles, gstin, address, job_card, request_number, receipt_number) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [tenantId, orderCode, customer_name, customer_mobile || null, req.body.customer_id || null, date_of_receipt || new Date(), articles ? articles.length : 1, req.body.gstin || null, req.body.address || null, req.body.job_card || null, req.body.request_number || null, req.body.receipt_number || null]
     );
     const order = orderRes.rows[0];
 
@@ -71,7 +71,10 @@ export const getArticleById = async (req, res, next) => {
         COALESCE(j.phone, o.customer_mobile) as phone,
         COALESCE(j.bis_license, o.customer_id) as bis_license,
         COALESCE(j.gst_number, o.gstin) as gst_number,
-        COALESCE(j.address, o.address) as address
+        COALESCE(j.address, o.address) as address,
+        o.job_card,
+        o.request_number,
+        o.receipt_number
       FROM article_tracking a
       LEFT JOIN orders o ON a.order_id = o.id
       LEFT JOIN jewellers j ON o.customer_id::text = j.id::text
@@ -117,7 +120,10 @@ export const getArticles = async (req, res, next) => {
         COALESCE(j.phone, o.customer_mobile) as phone,
         COALESCE(j.bis_license, o.customer_id) as bis_license,
         COALESCE(j.gst_number, o.gstin) as gst_number,
-        COALESCE(j.address, o.address) as address
+        COALESCE(j.address, o.address) as address,
+        o.job_card,
+        o.request_number,
+        o.receipt_number
       FROM article_tracking a 
       LEFT JOIN orders o ON a.order_id = o.id 
       LEFT JOIN jewellers j ON o.customer_id::text = j.id::text
@@ -164,7 +170,8 @@ export const updateArticle = async (req, res, next) => {
     const {
       customer_name, phone, gst_number, bis_license, gstin, receipt_date, job_date, test_date,
       article_type, metal, declared_purity, gross_weight, net_weight,
-      quantity, remarks, status, huid, priority
+      quantity, remarks, status, huid, priority,
+      address, job_card, request_number, receipt_number
     } = req.body;
 
     const artRes = await pool.query('SELECT order_id FROM article_tracking WHERE id = $1', [id]);
@@ -185,6 +192,10 @@ export const updateArticle = async (req, res, next) => {
     
     const finalDate = receipt_date || job_date || test_date;
     if (finalDate !== undefined) { oUpdates.push(`receipt_date = $${oIdx++}`); oParams.push(finalDate); }
+    if (address !== undefined) { oUpdates.push(`address = $${oIdx++}`); oParams.push(address); }
+    if (job_card !== undefined) { oUpdates.push(`job_card = $${oIdx++}`); oParams.push(job_card); }
+    if (request_number !== undefined) { oUpdates.push(`request_number = $${oIdx++}`); oParams.push(request_number); }
+    if (receipt_number !== undefined) { oUpdates.push(`receipt_number = $${oIdx++}`); oParams.push(receipt_number); }
 
     if (oUpdates.length > 0 && orderId) {
       oParams.push(orderId);
