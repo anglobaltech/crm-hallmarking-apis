@@ -5,7 +5,7 @@ import { pool } from '../db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key';
 
-// Mock OTP storage (in production use Redis or DB with TTL)
+// Mock OTP storage (in production use Redis or DB with TTL s)
 const otpStore = new Map();
 
 // Configure Nodemailer Transporter
